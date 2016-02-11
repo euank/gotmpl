@@ -18,8 +18,7 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 			break
 		}
 		if err != nil {
-			// Here there be dragons; TODO
-			continue
+			return err
 		}
 
 		if inTemplate {
@@ -41,6 +40,8 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 			if err == io.EOF {
 				w.Write([]byte{b})
 				break
+			} else if err != nil {
+				return err
 			}
 			if nb[0] == byte('\\') {
 				// \\ escape
@@ -61,6 +62,8 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 			if err == io.EOF {
 				w.Write([]byte{b})
 				break
+			} else if err != nil {
+				return err
 			}
 			if nb[0] == '{' {
 				inTemplate = true

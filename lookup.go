@@ -1,7 +1,7 @@
 package gotmpl
 
 type Lookup interface {
-	Resolve(s string) (string, bool)
+	Resolve(variable string) (string, bool)
 }
 
 type MapLookup map[string]string
