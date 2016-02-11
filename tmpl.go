@@ -1,3 +1,8 @@
+// Package gotmpl provides a simple library for stupid-simple templating.
+// This templating is limited to variable substitution only. The only special characters are `\` and `$`.
+// Each can be escaped with a backslash as `\\` and `$$` respectively.
+// A valid variable reference must take the form of `${variable}` where `variable` matches /[a-zA-Z0-9_\-]/.
+// Please see the examples and README for more details on usage of this library.
 package gotmpl
 
 import (
@@ -8,6 +13,9 @@ import (
 	"strings"
 )
 
+// Template parses any variables from a given reader and outputs processed data
+// to the given writer. Variables are replaced based on the result of the
+// provided lookup.
 func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 	bufReader := bufio.NewReader(r)
 	inTemplate := false
@@ -75,9 +83,13 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 
 		w.Write([]byte{b})
 	}
+	if inTemplate {
+		return errors.New("unmatched open '{'")
+	}
 	return nil
 }
 
+// TemplateString is a convenience function to template a given input string in memory
 func TemplateString(templateString string, lookup Lookup) (string, error) {
 	var out bytes.Buffer
 	err := Template(strings.NewReader(templateString), &out, lookup)

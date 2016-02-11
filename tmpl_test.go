@@ -14,3 +14,10 @@ func TestMapLookupTemplate(t *testing.T) {
 		t.Errorf("Expected `echo bar`, got %v", res)
 	}
 }
+
+func TestEarlyEOFTemplate(t *testing.T) {
+	_, err := TemplateString(`echo ${foo`, MapLookup(map[string]string{"foo": "bar"}))
+	if err == nil {
+		t.Error("Should fail on mismatched bracse")
+	}
+}
