@@ -22,8 +22,7 @@ func (fibLookup) Resolve(variable string) (string, bool) {
 		}
 		x, y, i := 1, 0, 0
 		for ; i < fibNum; i++ {
-			x = x + y
-			x, y = y, x
+			x, y = y, x+y
 		}
 		return strconv.Itoa(x), true
 	}
