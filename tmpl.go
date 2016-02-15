@@ -1,6 +1,6 @@
 // Package gotmpl provides a simple library for stupid-simple templating.
 // This templating is limited to variable substitution only. The only special characters are `\` and `$`.
-// Each can be escaped with a backslash as `\\` and `$$` respectively.
+// Each can be escaped with a backslash as `\\` and `\$` respectively.
 // A valid variable reference must take the form of `${variable}` where `variable` matches /[a-zA-Z0-9_\-]/.
 // Please see the examples and README for more details on usage of this library.
 package gotmpl
