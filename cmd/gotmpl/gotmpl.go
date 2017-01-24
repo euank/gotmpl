@@ -42,6 +42,7 @@ func main() {
 		if *inplace {
 			outWriter = &bufferedFileWriter{file: fileName, Buffer: bytes.NewBuffer([]byte{})}
 		}
+		remainingArgs = remainingArgs[0 : len(remainingArgs)-1]
 	}
 
 	resolvers := chainResolver{}
