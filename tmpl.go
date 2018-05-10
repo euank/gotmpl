@@ -8,7 +8,6 @@ package gotmpl
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 )
@@ -34,7 +33,7 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 				inTemplate = false
 				val, ok := lookup.Resolve(varName)
 				if !ok {
-					return errors.New("Could not resolve variable: " + varName)
+					return UnresolvedVariableError{v: varName}
 				}
 				w.Write([]byte(val))
 			} else {
@@ -84,7 +83,7 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 		w.Write([]byte{b})
 	}
 	if inTemplate {
-		return errors.New("unmatched open '{'")
+		return UnmatchedBraceError
 	}
 	return nil
 }
