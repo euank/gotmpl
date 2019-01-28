@@ -40,7 +40,7 @@ hello world
 A template may be evaluated by providing anything which satisfies the `Lookup` interface. The most trivial thing to use is a go map via the `MapLookup`:
 
 ```go
-result := gotmpl.TemplateString("foo is ${foo}", gotmpl.MapLookup(map[string]string{"foo": "value"}))
+result, err := gotmpl.TemplateString("foo is ${foo}", gotmpl.MapLookup(map[string]string{"foo": "value"}))
 
 fmt.Println(result)
 // Prints: foo is value
