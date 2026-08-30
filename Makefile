@@ -9,9 +9,8 @@ release: clean
 ./bin/gotmpl: $(GO_FILES)
 	go build -o ./bin/gotmpl ./cmd/gotmpl
 
-test: ./bin/gotmpl
+test:
 	go test -v ./...
 
 clean:
 	rm -f ./bin/gotmpl
-

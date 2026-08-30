@@ -1,6 +1,25 @@
 package gotmpl
 
-import "testing"
+import (
+	"errors"
+	"io"
+	"strings"
+	"testing"
+)
+
+type errorWriter struct {
+	err error
+}
+
+func (w errorWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
+type shortWriter struct{}
+
+func (shortWriter) Write(p []byte) (int, error) {
+	return len(p) - 1, nil
+}
 
 func TestMapLookupTemplate(t *testing.T) {
 	s := "echo ${foo}"
@@ -35,5 +54,20 @@ func TestVarError(t *testing.T) {
 	case UnresolvedVariableError:
 	default:
 		t.Errorf("type should be UnresolvedVariableError; was %T", err)
+	}
+}
+
+func TestTemplateReturnsWriterError(t *testing.T) {
+	want := errors.New("write failed")
+	err := Template(strings.NewReader("content"), errorWriter{err: want}, MapLookup{})
+	if !errors.Is(err, want) {
+		t.Fatalf("Template() error = %v, want %v", err, want)
+	}
+}
+
+func TestTemplateReturnsShortWrite(t *testing.T) {
+	err := Template(strings.NewReader("content"), shortWriter{}, MapLookup{})
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("Template() error = %v, want %v", err, io.ErrShortWrite)
 	}
 }

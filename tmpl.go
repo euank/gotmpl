@@ -1,7 +1,8 @@
 // Package gotmpl provides a simple library for stupid-simple templating.
 // This templating is limited to variable substitution only. The only special characters are `\` and `$`.
 // Each can be escaped with a backslash as `\\` and `\$` respectively.
-// A valid variable reference must take the form of `${variable}` where `variable` matches /[a-zA-Z0-9_\-]/.
+// A variable reference takes the form `${variable}`. Variable names may contain
+// any character except `}`.
 // Please see the examples and README for more details on usage of this library.
 package gotmpl
 
@@ -17,6 +18,16 @@ import (
 // provided lookup.
 func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 	bufReader := bufio.NewReader(r)
+	write := func(p []byte) error {
+		n, err := w.Write(p)
+		if err != nil {
+			return err
+		}
+		if n != len(p) {
+			return io.ErrShortWrite
+		}
+		return nil
+	}
 	inTemplate := false
 	varName := ""
 	for {
@@ -35,7 +46,9 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 				if !ok {
 					return UnresolvedVariableError{v: varName}
 				}
-				w.Write([]byte(val))
+				if err := write([]byte(val)); err != nil {
+					return err
+				}
 			} else {
 				varName += string(b)
 			}
@@ -45,20 +58,26 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 		if b == '\\' {
 			nb, err := bufReader.Peek(1)
 			if err == io.EOF {
-				w.Write([]byte{b})
+				if err := write([]byte{b}); err != nil {
+					return err
+				}
 				break
 			} else if err != nil {
 				return err
 			}
 			if nb[0] == byte('\\') {
 				// \\ escape
-				w.Write([]byte{b})
+				if err := write([]byte{b}); err != nil {
+					return err
+				}
 				bufReader.ReadByte()
 				continue
 			}
 			if nb[0] == '$' {
 				// \$ escape
-				w.Write([]byte("$"))
+				if err := write([]byte("$")); err != nil {
+					return err
+				}
 				bufReader.ReadByte()
 				continue
 			}
@@ -67,7 +86,9 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 		if b == '$' {
 			nb, err := bufReader.Peek(1)
 			if err == io.EOF {
-				w.Write([]byte{b})
+				if err := write([]byte{b}); err != nil {
+					return err
+				}
 				break
 			} else if err != nil {
 				return err
@@ -80,7 +101,9 @@ func Template(r io.Reader, w io.Writer, lookup Lookup) error {
 			}
 		}
 
-		w.Write([]byte{b})
+		if err := write([]byte{b}); err != nil {
+			return err
+		}
 	}
 	if inTemplate {
 		return UnmatchedBraceError

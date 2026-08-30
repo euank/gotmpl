@@ -12,11 +12,21 @@ This code supports the following three features:
 
 No other special syntax is supported.
 
+Variable names may contain any character except `}`. Lookup implementations
+decide which names they accept.
+
 ## Usage
 
 ### As a CLI tool
 
 By default, the `gotmpl` cli tool will resolve template variables from the current environment. As an argument, it takes a file to template and prints the result to stdout.
+
+When stdin is piped, it is used as the template instead. Other positional files
+are JSON objects whose values are also made available as variables: when the
+template comes from a file, it is the final argument; when the template comes
+from stdin, all positional files are JSON inputs. Use `-env=false` to disable
+environment lookup, or `-inplace` to atomically replace a template file while
+preserving its permissions.
 
 For example:
 
