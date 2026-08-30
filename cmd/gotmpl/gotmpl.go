@@ -3,44 +3,57 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/euank/gotmpl"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	env := flag.Bool("env", true, "Pull variables from the environment")
 	inplace := flag.Bool("inplace", false, "Replace variables in the given file inplace")
 	flag.Parse()
 	remainingArgs := flag.Args()
 
 	var tmplReader io.Reader
-	var outWriter io.WriteCloser = os.Stdout
-	defer outWriter.Close()
+	var templateFile *os.File
+	var inplaceFile string
+	defer func() {
+		if templateFile != nil {
+			_ = templateFile.Close()
+		}
+	}()
 
 	if shouldReadStdin() {
 		if *inplace {
-			log.Fatal("Cannot do inplace replacement of stdin")
+			return errors.New("cannot do inplace replacement of stdin")
 		}
 
 		tmplReader = os.Stdin
 	} else {
 		if len(remainingArgs) == 0 {
-			log.Fatal("Must provide an argument of a file to template")
+			return errors.New("must provide an argument of a file to template")
 		}
 		fileName := remainingArgs[len(remainingArgs)-1]
 		lastFile, err := os.Open(fileName)
 		if err != nil {
-			log.Fatalf("Could not open given file (%v) for templating: %v", fileName, err)
+			return fmt.Errorf("could not open given file (%v) for templating: %w", fileName, err)
 		}
+		templateFile = lastFile
 		tmplReader = lastFile
 		if *inplace {
-			outWriter = &bufferedFileWriter{file: fileName, Buffer: bytes.NewBuffer([]byte{})}
+			inplaceFile = fileName
 		}
 		remainingArgs = remainingArgs[0 : len(remainingArgs)-1]
 	}
@@ -54,18 +67,14 @@ func main() {
 	vars := make(map[string]interface{})
 	for _, arg := range remainingArgs {
 		avar := make(map[string]interface{})
-		f, err := os.Open(arg)
+		data, err := os.ReadFile(arg)
 		if err != nil {
-			log.Fatal("Unable to open file: " + arg)
-		}
-		data, err := ioutil.ReadAll(f)
-		if err != nil {
-			log.Fatal("Unable to read file: " + arg)
+			return fmt.Errorf("unable to read file %v: %w", arg, err)
 		}
 
 		err = json.Unmarshal(data, &avar)
 		if err != nil {
-			log.Fatalf("Invalid json file %v: %v", arg, err)
+			return fmt.Errorf("invalid json file %v: %w", arg, err)
 		}
 
 		for k, v := range avar {
@@ -84,20 +93,60 @@ func main() {
 
 	resolvers = append(resolvers, strVars)
 
-	if err := gotmpl.Template(tmplReader, outWriter, resolvers); err != nil {
-		log.Fatal(err)
+	if inplaceFile == "" {
+		return gotmpl.Template(tmplReader, os.Stdout, resolvers)
 	}
+
+	var output bytes.Buffer
+	if err := gotmpl.Template(tmplReader, &output, resolvers); err != nil {
+		return err
+	}
+	if err := templateFile.Close(); err != nil {
+		return fmt.Errorf("close template file: %w", err)
+	}
+	templateFile = nil
+	if err := atomicWriteFile(inplaceFile, output.Bytes()); err != nil {
+		return fmt.Errorf("replace template file: %w", err)
+	}
+	return nil
 }
 
-// bufferedFileWriter is an io.WriteCloser which buffers all 'Write' calls into
-// memory, and then flushes them to the provided file on 'Close'.
-type bufferedFileWriter struct {
-	file string
-	*bytes.Buffer
-}
+func atomicWriteFile(name string, data []byte) (err error) {
+	name, err = filepath.EvalSymlinks(name)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
 
-func (b *bufferedFileWriter) Close() error {
-	return ioutil.WriteFile(b.file, b.Bytes(), 0600)
+	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if tmp != nil {
+			_ = tmp.Close()
+		}
+		_ = os.Remove(tmpName)
+	}()
+
+	if err := tmp.Chmod(info.Mode().Perm()); err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	tmp = nil
+	return os.Rename(tmpName, name)
 }
 
 // chainResolver checks for a variable in each element of the chain in order
